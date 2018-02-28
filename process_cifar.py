@@ -1,6 +1,7 @@
 '''
 Process the Kaggle Cifar10 data to make it usable with the keras models.
-The data and labels are different from what is provided in the Kaggle data.
+The Kaggle data is provided as folders of .png files with string labels.
+Our keras models use ndarray and one-hot labels.
 NB: the labels are already processed using the map_labels.py script.
 
 Date: 2018-02-26
@@ -73,7 +74,6 @@ if __name__ == '__main__':
     parser.add_argument('--what', choices=['train', 'test'],
         help='make one of (train|test)')
     FLAGS, _  = parser.parse_known_args()
-    #pdb.set_trace()
     if FLAGS.what == 'train':
         make_train()
     else:

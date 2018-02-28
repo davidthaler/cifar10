@@ -5,23 +5,12 @@
 import os
 import sys
 import argparse
-from keras.datasets import cifar10
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Dense, Dropout
 from keras.layers import Flatten, Activation, BatchNormalization
-from keras.utils import to_categorical
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
-
-def get_cifar():
-    (xtr, ytr), (xte, yte) = cifar10.load_data()
-    # y is a vector of labels in 0...9; change to one-hot
-    ytr = to_categorical(ytr)
-    yte = to_categorical(yte)
-    # x is uint8 0...255; change to float in [0.0, 1.0]
-    xtr = (xtr / 255.0).astype('float32')
-    xte = (xte / 255.0).astype('float32')
-    return xtr, ytr, xte, yte
+from cifar_util import get_cifar
 
 def main(args):
     xtr, ytr, xte, yte = get_cifar()

@@ -1,19 +1,31 @@
 '''
-Get the processed data from map_labels and process_cifar in to numpy arrays
-that are ready to be fed into keras.
+Load saved data, either from keras or Kaggle.
+Make predictions/submission files.
 
 Date: 2018-02-26
 '''
+from argparse import ArgumentParser
 from pathlib import Path
 import numpy as np
 import pandas as pd 
 from keras.utils import to_categorical
-import pdb
-
+from keras.models import load_model
+from keras.datasets import cifar10
 
 BASE = Path.home() / 'Documents' / 'tensorflow' / 'cifar10'
 DATA = BASE / 'data'
 NPDATA = DATA / 'numpy_data'
+
+
+def get_cifar():
+    (xtr, ytr), (xte, yte) = cifar10.load_data()
+    # y is a vector of labels in 0...9; change to one-hot
+    ytr = to_categorical(ytr)
+    yte = to_categorical(yte)
+    # x is uint8 0...255; change to float in [0.0, 1.0]
+    xtr = (xtr.astype('float32') / 255.0)
+    xte = (xte.astype('float32') / 255.0)
+    return xtr, ytr, xte, yte
 
 
 def load_train():
@@ -89,7 +101,7 @@ def prepare_submission(preds):
     labelpath = DATA / 'full_labels.csv'
     fulllabels = pd.read_csv(labelpath)
     label_map = fulllabels.groupby('y').label.first()
-    #pdb.set_trace()
+
     ss = pd.read_csv(DATA / 'sampleSubmission.csv')
     ss.label = preds
     ss.label = ss.label.map(label_map)
@@ -102,3 +114,17 @@ def full_predict(model, submission_name):
     sub = prepare_submission(preds)
     subname = BASE / 'submissions' / ('submission_%s.csv' % submission_name)
     sub.to_csv(subname, index=False)
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('--model_dir', default=BASE / 'models',
+        help='path to folder containing saved model')
+    parser.add_argument('--sub', required=True,
+        help='submission saved at: BASE/submissions/submission_<sub>.csv')
+    parser.add_argument('--model_name', required=True,
+        help='name of model in <model_dir>')
+    args = parser.parse_args()
+    modelpath = args.model_dir / args.model_name
+    model = load_model(modelpath)
+    full_predict(model, args.sub)

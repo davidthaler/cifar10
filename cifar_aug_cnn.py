@@ -6,49 +6,36 @@
 # Date 06-Feb-2018
 import os
 import argparse
-from keras.datasets import cifar10
+
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from keras.preprocessing.image import ImageDataGenerator
-from keras.utils import to_categorical
 from keras.models import load_model
 from keras.callbacks import ModelCheckpoint
-from kaggle_cifar import load_train, make_validation_split
+from cifar_util import get_cifar, make_validation_split, load_train
 
 def get_data(args):
     '''
     Either use the Kaggle Cifar10 data with or without a validation set, or
     the data built in to keras and (ab)use its test set as validation data.
     '''
-    if args.datasource == 'builtin':
+    if args.datasource == 'keras':
         xtr, ytr, xval, yval =  get_cifar()
         val = (xval, yval)
     elif args.datasource == 'validate':
         xtr, ytr, xval, yval =  make_validation_split()
         val = (xval, yval)
-    else:                       # args was full
+    else:                       # args was "full"
         xtr, ytr = load_train()
         val = None
     return xtr, ytr, val
 
-def get_cifar():
-    (xtr, ytr), (xte, yte) = cifar10.load_data()
-    # y is a vector of labels in 0...9; change to one-hot
-    ytr = to_categorical(ytr)
-    yte = to_categorical(yte)
-    # x is uint8 0...255; change to float in [0.0, 1.0]
-    xtr = (xtr.astype('float32') / 255.0)
-    xte = (xte.astype('float32') / 255.0)
-    return xtr, ytr, xte, yte
-
-def get_datagen(xtr, args):
+def get_datagen(args):
     datagen = ImageDataGenerator(horizontal_flip=True,
                                  width_shift_range=args.width_shift,
                                  height_shift_range=args.height_shift,
                                  zoom_range=args.zoom,
                                  rotation_range=args.rotate)
-    # fit not needed if no statistics are computed.
-    # datagen.fit(xtr)
     return datagen
 
 def build_model(args):
@@ -78,7 +65,7 @@ def build_model(args):
 def run(args):
     savepath = os.path.join(args.base_dir, args.name)
     xtr, ytr, val = get_data(args)
-    datagen = get_datagen(xtr, args)
+    datagen = get_datagen(args)
     if args.restore:
         model = load_model(savepath)
     else:
@@ -97,8 +84,7 @@ def run(args):
 
 
 if __name__ == '__main__':
-    DESC = 'Run train/eval on Cifar10 with data augmentation'
-    parser = argparse.ArgumentParser(DESC)
+    parser = argparse.ArgumentParser()
     parser.add_argument('--zoom', type=float, default=0.0,
         help='float zoom range; scaled to 1 +- zoom; default 0.0')
     parser.add_argument('--rotate', type=int, default=0,
@@ -132,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument('--save', action='store_true',
         help='save model at base_dir/name; overwrites anything there')
     parser.add_argument('--datasource', required=True,
-        choices=['builtin', 'full', 'validate'],
+        choices=['keras', 'full', 'validate'],
         help='Use the Kaggle data, optionally with a 1/5 validation set \n' + 
         'or use the data built in to keras.datasets')
     args, _ = parser.parse_known_args()
