@@ -13,6 +13,23 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
 from keras.models import load_model
 from keras.callbacks import ModelCheckpoint
+from kaggle_cifar import load_train, make_validation_split
+
+def get_data(args):
+    '''
+    Either use the Kaggle Cifar10 data with or without a validation set, or
+    the data built in to keras and (ab)use its test set as validation data.
+    '''
+    if args.datasource == 'builtin':
+        xtr, ytr, xval, yval =  get_cifar()
+        val = (xval, yval)
+    elif args.datasource == 'validate':
+        xtr, ytr, xval, yval =  make_validation_split()
+        val = (xval, yval)
+    else:                       # args was full
+        xtr, ytr = load_train()
+        val = None
+    return xtr, ytr, val
 
 def get_cifar():
     (xtr, ytr), (xte, yte) = cifar10.load_data()
@@ -60,7 +77,7 @@ def build_model(args):
 
 def run(args):
     savepath = os.path.join(args.base_dir, args.name)
-    xtr, ytr, xte, yte = get_cifar()
+    xtr, ytr, val = get_data(args)
     datagen = get_datagen(xtr, args)
     if args.restore:
         model = load_model(savepath)
@@ -71,13 +88,13 @@ def run(args):
         if not os.path.exists(args.base_dir):
             os.makedirs(args.base_dir)
         callbacks = [ModelCheckpoint(savepath, verbose=1)]
-    model.fit_generator(datagen.flow(xtr, ytr, batch_size=args.batch_sz),
-                        validation_data=(xte, yte),
+    model.fit_generator(datagen.flow(xtr, ytr,
+                        batch_size=args.batch_size),
+                        validation_data=val,
                         workers=4,
                         epochs=args.epochs,
                         callbacks=callbacks)
-    results = model.evaluate(xte, yte)
-    return results
+
 
 if __name__ == '__main__':
     DESC = 'Run train/eval on Cifar10 with data augmentation'
@@ -92,7 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('--width_shift', type=float, default=0.0,
         help='range for random horizontal shifts in data augmentation;'+
              'default 0.0 for no shift')
-    parser.add_argument('--batch_sz', type=int, default=100,
+    parser.add_argument('--batch_size', type=int, default=100,
         help='training batch size; default 100')
     parser.add_argument('--epochs', type=int, default=1,
         help='number of training epochs; default 1')
@@ -114,6 +131,9 @@ if __name__ == '__main__':
         help='restore from base_dir/name; if set, will ignore filtersN/dense')
     parser.add_argument('--save', action='store_true',
         help='save model at base_dir/name; overwrites anything there')
+    parser.add_argument('--datasource', required=True,
+        choices=['builtin', 'full', 'validate'],
+        help='Use the Kaggle data, optionally with a 1/5 validation set \n' + 
+        'or use the data built in to keras.datasets')
     args, _ = parser.parse_known_args()
-    results = run(args)
-    print('Loss: %.4f   Acc: %.4f' % tuple(results))
+    run(args)
