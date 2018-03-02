@@ -14,6 +14,8 @@ from keras.models import load_model
 from keras.callbacks import ModelCheckpoint
 from cifar_util import get_cifar, make_validation_split, load_train
 
+from keras.layers import BatchNormalization, Activation
+
 def get_data(args):
     '''
     Either use the Kaggle Cifar10 data with or without a validation set, or
@@ -42,19 +44,29 @@ def build_model(args):
     model = Sequential()
     model.add(Conv2D(input_shape=(32, 32, 3),
                      filters=args.filters1,
-                     kernel_size=5,
-                     activation='relu'))
+                     kernel_size=5))
+    if args.batchnorm:
+        model.add(BatchNormalization())
+    model.add(Activation('relu'))
     model.add(MaxPooling2D())
     model.add(Conv2D(filters=args.filters2,
-                     kernel_size=3,
-                     activation='relu'))
+                     kernel_size=3))
+    if args.batchnorm:
+        model.add(BatchNormalization())
+    model.add(Activation('relu'))
     model.add(MaxPooling2D())
     model.add(Conv2D(filters=args.filters3,
                      kernel_size=3,
-                     activation='relu'))
+                     padding='same'))
+    if args.batchnorm:
+        model.add(BatchNormalization())
+    model.add(Activation('relu'))
     model.add(MaxPooling2D())
     model.add(Flatten())
-    model.add(Dense(args.dense, activation='relu'))
+    model.add(Dense(args.dense))
+    if args.batchnorm:
+        model.add(BatchNormalization())
+    model.add(Activation('relu'))
     model.add(Dropout(rate=args.dropout))
     model.add(Dense(10, activation='softmax'))
     model.compile(optimizer='adam',
@@ -109,6 +121,8 @@ if __name__ == '__main__':
         help='Number of filters in second convolutional layer; default 128')
     parser.add_argument('--dense', type=int, default=256,
         help='Number of units in dense, fully-connected layer; default 256')
+    parser.add_argument('--batchnorm', action='store_true',
+        help='Apply batchnorm on all layers')
     parser.add_argument('--name', default='',
         help='model directory is <base_dir>/<name>; default '' for <base_dir>')
     parser.add_argument('--base_dir', default='/tmp/cifar10aug/',
