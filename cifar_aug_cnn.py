@@ -14,7 +14,7 @@ from keras.models import load_model
 from keras.callbacks import ModelCheckpoint
 from cifar_util import get_cifar, make_validation_split, load_train
 
-from keras.layers import BatchNormalization, Activation
+from keras.layers import BatchNormalization, Activation, Cropping2D
 
 def get_data(args):
     '''
@@ -42,15 +42,16 @@ def get_datagen(args):
 
 def build_model(args):
     model = Sequential()
-    model.add(Conv2D(input_shape=(32, 32, 3),
-                     filters=args.filters1,
+    model.add(Cropping2D(2, input_shape=(32, 32, 3)))
+    model.add(Conv2D(filters=args.filters1,
                      kernel_size=5))
     if args.batchnorm:
         model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(MaxPooling2D())
     model.add(Conv2D(filters=args.filters2,
-                     kernel_size=3))
+                     kernel_size=3,
+                     padding='same'))
     if args.batchnorm:
         model.add(BatchNormalization())
     model.add(Activation('relu'))
@@ -125,7 +126,7 @@ if __name__ == '__main__':
         help='Apply batchnorm on all layers')
     parser.add_argument('--name', default='',
         help='model directory is <base_dir>/<name>; default '' for <base_dir>')
-    parser.add_argument('--base_dir', default='/tmp/cifar10aug/',
+    parser.add_argument('--base_dir', default='../models',
         help='base of estimator model_dir; default /tmp/cifar10aug/')
     parser.add_argument('--restore', action='store_true',
         help='restore from base_dir/name; if set, will ignore filtersN/dense')
