@@ -37,8 +37,15 @@ def get_datagen(args):
                                  width_shift_range=args.width_shift,
                                  height_shift_range=args.height_shift,
                                  zoom_range=args.zoom,
-                                 rotation_range=args.rotate)
+                                 rotation_range=args.rotate,
+                                 samplewise_center=args.center,
+                                 samplewise_std_normalization=args.scale)
     return datagen
+
+def get_valgen(args):
+    valgen = ImageDataGenerator(samplewise_center=args.center,
+                                samplewise_std_normalization=args.scale)
+    return valgen
 
 def build_model(args):
     model = Sequential()
@@ -79,6 +86,12 @@ def run(args):
     savepath = os.path.join(args.base_dir, args.name)
     xtr, ytr, val = get_data(args)
     datagen = get_datagen(args)
+    if args.center or args.scale:
+        valgen = get_valgen(args)
+        xval, yval = val
+        val = valgen.flow(xval, yval,
+                          batch_size=args.batch_size,
+                          shuffle=False)
     if args.restore:
         model = load_model(savepath)
     else:
@@ -98,6 +111,10 @@ def run(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--center', action='store_true',
+        help='set mean of each sample to 0')
+    parser.add_argument('--scale', action='store_true',
+        help='standard scale each image')
     parser.add_argument('--zoom', type=float, default=0.0,
         help='float zoom range; scaled to 1 +- zoom; default 0.0')
     parser.add_argument('--rotate', type=int, default=0,
