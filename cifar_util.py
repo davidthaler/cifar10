@@ -11,6 +11,9 @@ import pandas as pd
 from keras.utils import to_categorical
 from keras.models import load_model
 from keras.datasets import cifar10
+from keras.preprocessing.image import ImageDataGenerator
+from itertools import islice
+
 
 BASE = Path.home() / 'Documents' / 'tensorflow' / 'cifar10'
 DATA = BASE / 'data'
@@ -67,53 +70,65 @@ def testgen():
     testpath = NPDATA / 'test'
     for k in range(1, 7):
         filename = 'test_batch%d.npy' % k
+        print('loading %s' % filename)
         x = np.load(testpath / filename)
         yield x
 
 
-def batch_predict(model):
+def scalegen(center, scale):
+    '''
+    Alternate test image data generator to use if data is centered/scaled.
+
+    Args:
+        center: samplewise center data
+        scale: samplewise scale data
+
+    Yields:
+        batches of adjusted test images
+    '''
+    img_gen = ImageDataGenerator(samplewise_center=center,
+                                 samplewise_std_normalization=scale)
+    for x in testgen():
+        yield from islice(img_gen.flow(x, batch_size=1000, shuffle=False), 50)
+
+
+def batch_predict(model, data):
     '''
     The data is borderline for fitting in memory,
     so we use large prediction batches.
 
     Args:
         model: a fitted model
+        data: generator for test data batches
 
     Returns:
         1-D vector of predicted class indices (integers)
     '''
     results = []
-    for x in testgen():
+    for x in data:
         pred = model.predict(x).argmax(axis=1)
         results.append(pred)
     return np.concatenate(results)
 
 
-def prepare_submission(preds):
+def write_submission(predictions, submission_name):
     '''
-    Load sample submission, converts prediction indices to labels,
-    then writes predictions into sample submission frame.
+    Writes out a submission file using predictions at
+    submission_<submission_name>.csv
 
     Args:
-        preds: output from batch_predict
+        predictions: output from batch_predict
+        submission_name: result named submission_<submission_name>.csv
     '''
     # get pd.Series to map prediction indices to label names
     labelpath = DATA / 'full_labels.csv'
     fulllabels = pd.read_csv(labelpath)
     label_map = fulllabels.groupby('y').label.first()
-
     ss = pd.read_csv(DATA / 'sampleSubmission.csv')
-    ss.label = preds
+    ss.label = predictions
     ss.label = ss.label.map(label_map)
-    return ss
-
-
-def full_predict(model, submission_name):
-    '''Predict on test set and write out submission.'''
-    preds = batch_predict(model)
-    sub = prepare_submission(preds)
-    subname = BASE / 'submissions' / ('submission_%s.csv' % submission_name)
-    sub.to_csv(subname, index=False)
+    subname = BASE / 'submissions' / ('submission_%s.csv.gz' % submission_name)
+    ss.to_csv(subname, index=False, compression='gzip')
 
 
 if __name__ == '__main__':
@@ -124,7 +139,16 @@ if __name__ == '__main__':
         help='submission saved at: BASE/submissions/submission_<sub>.csv')
     parser.add_argument('--model_name', required=True,
         help='name of model in <model_dir>')
+    parser.add_argument('--center', action='store_true',
+        help='samplewise center the input')
+    parser.add_argument('--scale', action='store_true',
+        help='samplewise standard scale the input')
     args = parser.parse_args()
     modelpath = args.model_dir / args.model_name
     model = load_model(modelpath)
-    full_predict(model, args.sub)
+    if args.center or args.scale:
+        datagen = scalegen(args.center, args.scale)
+    else:
+        datagen = testgen()
+    preds = batch_predict(model, datagen)
+    write_submission(preds, args.sub)
