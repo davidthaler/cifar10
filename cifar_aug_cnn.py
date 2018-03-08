@@ -86,12 +86,13 @@ def run(args):
     savepath = os.path.join(args.base_dir, args.name)
     xtr, ytr, val = get_data(args)
     datagen = get_datagen(args)
-    if args.center or args.scale:
-        valgen = get_valgen(args)
-        xval, yval = val
-        val = valgen.flow(xval, yval,
-                          batch_size=args.batch_size,
-                          shuffle=False)
+    if val is not None:
+        if args.center or args.scale:
+            valgen = get_valgen(args)
+            xval, yval = val
+            val = valgen.flow(xval, yval,
+                              batch_size=args.batch_size,
+                              shuffle=False)
     if args.restore:
         model = load_model(savepath)
     else:
